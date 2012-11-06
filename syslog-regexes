@@ -1,0 +1,2 @@
+# Oct 30 20:10:57 hostname sshd[18520]: Accepted publickey for user from 192.168.1.1 port 60194 ssh2
+(?P<hostname>\S+)\s*sshd\[\d+\]: Accepted.*for\s*(?P<userid>\S+)\s*from\s*(?:::f{4,6}:)?(?P<ipaddr>[\w\-.^_]+)\s*port\s\d+\s*(?P<daemon>\S+)
