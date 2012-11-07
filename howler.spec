@@ -2,7 +2,7 @@
 
 Name:       howler
 Version:    0.1
-Release:    1%{?dist}
+Release:    2%{?dist}
 Summary:    Alert when users log in from new locations
 
 License:    GPLv3
@@ -32,16 +32,18 @@ mkdir -p %{buildroot}%{_sysconfdir}/rsyslog.d
 install -m 0644 howler-rsyslog.conf \
     %{buildroot}%{_sysconfdir}/rsyslog.d/howler.conf
 mkdir -p %{buildroot}%{_localstatedir}/lib/howler
+mkdir -p %{buildroot}%{_sysconfdir}/cron.daily
+install -m 0755 howler-cleanup.cron %{buildroot}%{_sysconfdir}/cron.daily/
 
 
 %files
 %doc COPYING
 %config(noreplace) %{_sysconfdir}/howler
-%config(noreplace) %{_sysconfdir}/rsyslog.d/howler.conf
+%config(noreplace) %{_sysconfdir}/rsyslog.d/*
+%config(noreplace) %{_sysconfdir}/cron.daily/*
 %{python_sitelib}
 %{_bindir}/*
 %{_localstatedir}/lib/howler
-
 
 
 %changelog
