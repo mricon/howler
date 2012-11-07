@@ -197,10 +197,7 @@ def check(config, userid, ipaddr, hostname=None, daemon=None):
 
     msg['From']    = config['mailfrom']
     msg['Subject'] = u'New login by %s from %s' % (userid, crc)
-    if daemon is not None:
-        msg['Subject'] += u' using %s' % daemon
-
-    msg['To'] = config['mailto']
+    msg['To']      = config['mailto']
 
     if config['verbose']:
         print 'Sending mail to %s' % config['mailto']
