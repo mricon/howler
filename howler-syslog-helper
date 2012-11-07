@@ -45,9 +45,10 @@ while True:
 
         config = {
             'verbose' : False,
-            'hostname': None,
-            'daemon'  : None
             }
+
+        hostname = None
+        daemon   = None
 
         ini = ConfigParser()
         ini.read(CONFIG)
@@ -57,12 +58,13 @@ while True:
 
         fields = res.groupdict()
         if 'hostname' in fields.keys():
-            config['hostname'] = fields['hostname']
+            hostname = fields['hostname']
         if 'daemon' in fields.keys():
-            config['daemon'] = fields['daemon']
+            daemon = fields['daemon']
 
         import howler
-        howler.check(config, fields['userid'], fields['ipaddr'])
+        howler.check(config, fields['userid'], fields['ipaddr'],
+                hostname=hostname, daemon=daemon)
 
         sys.exit(0)
 

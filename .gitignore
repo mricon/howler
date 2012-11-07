@@ -2,3 +2,4 @@ GeoLiteCity.dat
 last_seen.db
 locations.sqlite
 *.pyc
+*.swp

@@ -59,12 +59,12 @@ def connect_locations(config):
 
     return sconn
 
-def get_geoip_crc(config, ip_addr):
+def get_geoip_crc(config, ipaddr):
     import GeoIP
     # Open the GeoIP database and perform the lookup
     try:
         gi    = GeoIP.open(config['geoipcitydb'], GeoIP.GEOIP_STANDARD)
-        ginfo = gi.record_by_addr(ip_addr)
+        ginfo = gi.record_by_addr(ipaddr)
 
         if not ginfo:
             return None
@@ -73,14 +73,14 @@ def get_geoip_crc(config, ip_addr):
                               ginfo['country_code'])
     except:
         gi  = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
-        crc = gi.country_code_by_addr(ip_addr)
+        crc = gi.country_code_by_addr(ipaddr)
         if not crc:
             return None
 
     return crc
 
-def not_after(config, userid, ip_addr, not_after):
-    crc = get_geoip_crc(config, ip_addr)
+def not_after(config, userid, ipaddr, not_after):
+    crc = get_geoip_crc(config, ipaddr)
 
     sconn = connect_locations(config)
     scursor = sconn.cursor()
@@ -93,26 +93,33 @@ def not_after(config, userid, ip_addr, not_after):
         print '"%s" updated to expire on %s for %s' % (crc, not_after, userid)
     return
 
-def check(config, userid, ip_addr):
+def check(config, userid, ipaddr, hostname=None, daemon=None):
+    # check if it's a user we should ignore
+    if 'ignoreusers' in config.keys():
+        ignoreusers = config['ignoreusers'].split(',')
+        for ignoreuser in ignoreusers:
+            if ignoreuser.strip() == userid:
+                return
+
     # Check if the IP has changed since last login.
     # the last_seen database is anydbm, because it's fast
     last_seen = connect_last_seen(config)
 
     if userid in last_seen.keys():
-        if last_seen[userid] == ip_addr:
+        if last_seen[userid] == ipaddr:
             if config['verbose']:
-                print 'Quick out: %s last seen from %s' % (userid, ip_addr)
+                print 'Quick out: %s last seen from %s' % (userid, ipaddr)
             return
 
     # Record the last_seen ip
-    last_seen[userid] = ip_addr
+    last_seen[userid] = ipaddr
     last_seen.close()
 
-    crc = get_geoip_crc(config, ip_addr)
+    crc = get_geoip_crc(config, ipaddr)
 
     if crc is None:
         if config['verbose']:
-            print 'GeoIP City database did not return anything for %s' % ip_addr
+            print 'GeoIP City database did not return anything for %s' % ipaddr
         return
 
     if config['verbose']:
@@ -163,13 +170,13 @@ def check(config, userid, ip_addr):
     # Now proceed to howling
     body = ("This user logged in from a new location:\n\n" +
             "\tUser    : %s\n" % userid +
-            "\tIP Addr : %s\n" % ip_addr +
+            "\tIP Addr : %s\n" % ipaddr +
             "\tLocation: %s\n" % crc)
 
-    if config['hostname']:
-        body += "\tHostname: %s\n" % config['hostname']
-    if config['daemon']:
-        body += "\tDaemon  : %s\n" % config['daemon']
+    if hostname is not None:
+        body += "\tHostname: %s\n" % hostname
+    if daemon is not None:
+        body += "\tDaemon  : %s\n" % daemon
 
     if len(locations):
         body += "\nPreviously seen locations for this user:\n"
@@ -188,9 +195,8 @@ def check(config, userid, ip_addr):
     msg = MIMEText(body)
 
     msg['From'] = config['mailfrom']
-    if config['daemon']:
-        msg['Subject'] = 'New %s login by %s from %s' % (config['daemon'], 
-                                                         userid, crc)
+    if daemon is not None:
+        msg['Subject'] = 'New %s login by %s from %s' % (daemon, userid, crc)
     else:
         msg['Subject'] = 'New login by %s from %s' % (userid, crc)
 
