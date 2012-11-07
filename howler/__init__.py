@@ -62,18 +62,19 @@ def connect_locations(config):
 def get_geoip_crc(config, ipaddr):
     import GeoIP
     # Open the GeoIP database and perform the lookup
-    try:
+    if os.path.exists(config['geoipcitydb']):
         gi    = GeoIP.open(config['geoipcitydb'], GeoIP.GEOIP_STANDARD)
         ginfo = gi.record_by_addr(ipaddr)
 
         if not ginfo:
             return None
 
-        crc = '%s, %s, %s' % (ginfo['city'], ginfo['region_name'], 
-                              ginfo['country_code'])
-    except:
+        crc = u'%s, %s, %s' % (unicode(ginfo['city'], 'iso-8859-1'),
+                               unicode(ginfo['region_name'], 'iso-8859-1'),
+                               unicode(ginfo['country_code'], 'iso-8859-1'))
+    else:
         gi  = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
-        crc = gi.country_code_by_addr(ipaddr)
+        crc = unicode(gi.country_code_by_addr(ipaddr), 'iso-8859-1')
         if not crc:
             return None
 
@@ -168,22 +169,22 @@ def check(config, userid, ipaddr, hostname=None, daemon=None):
             print 'Added new user %s' % userid
 
     # Now proceed to howling
-    body = ("This user logged in from a new location:\n\n" +
-            "\tUser    : %s\n" % userid +
-            "\tIP Addr : %s\n" % ipaddr +
-            "\tLocation: %s\n" % crc)
+    body = (u"This user logged in from a new location:\n\n" +
+            u"\tUser    : %s\n" % userid +
+            u"\tIP Addr : %s\n" % ipaddr +
+            u"\tLocation: %s\n" % crc)
 
     if hostname is not None:
-        body += "\tHostname: %s\n" % hostname
+        body += u"\tHostname: %s\n" % hostname
     if daemon is not None:
-        body += "\tDaemon  : %s\n" % daemon
+        body += u"\tDaemon  : %s\n" % daemon
 
     if len(locations):
-        body += "\nPreviously seen locations for this user:\n"
+        body += u"\nPreviously seen locations for this user:\n"
         for row in locations:
-            body += "\t%s: %s\n" % (row[1], row[0])
+            body += u"\t%s: %s\n" % (row[1], row[0])
 
-    body += "\n\n-- \nBrought to you by howler %s\n" % HOWLER_VERSION
+    body += u"\n\n-- \nBrought to you by howler %s\n" % HOWLER_VERSION
 
     if config['verbose']:
         print body
@@ -192,12 +193,12 @@ def check(config, userid, ipaddr, hostname=None, daemon=None):
     from email.mime.text import MIMEText
     from subprocess import Popen, PIPE
 
-    msg = MIMEText(body)
+    msg = MIMEText(body, 'plain', 'utf-8')
 
     msg['From']    = config['mailfrom']
-    msg['Subject'] = 'New login by %s from %s' % (userid, crc)
+    msg['Subject'] = u'New login by %s from %s' % (userid, crc)
     if daemon is not None:
-        msg['Subject'] += ' using %s' % daemon
+        msg['Subject'] += u' using %s' % daemon
 
     msg['To'] = config['mailto']
 
