@@ -1,0 +1,30 @@
+policy_module(howler,1.0.1)
+
+require {
+	type syslogd_t;
+}
+########################################
+#
+# Declarations
+#
+
+type howler_t;
+type howler_exec_t;
+application_domain(howler_t, howler_exec_t)
+role system_r types howler_t;
+
+type howler_etc_t;
+files_config_file(howler_etc_t)
+
+type howler_var_lib_t;
+files_type(howler_var_lib_t)
+
+########################################
+#
+# howler local policy
+#
+read_files_pattern(howler_t, howler_etc_t, howler_etc_t)
+manage_files_pattern(howler_t, howler_var_lib_t, howler_var_lib_t)
+mta_send_mail(howler_t)
+
+howler_domtrans(syslogd_t)

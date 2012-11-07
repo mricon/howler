@@ -1,0 +1,20 @@
+## <summary>policy for howler</summary>
+
+########################################
+## <summary>
+##    Execute a domain transition to run howler.
+## </summary>
+## <param name="domain">
+## <summary>
+##    Domain allowed access.
+## </summary>
+## </param>
+#
+interface(`howler_domtrans',`
+    gen_require(`
+        type howler_t, howler_exec_t;
+    ')
+
+    domtrans_pattern($1, howler_exec_t, howler_t)
+')
+

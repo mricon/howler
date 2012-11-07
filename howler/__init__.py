@@ -189,16 +189,15 @@ def check(config, userid, ipaddr, hostname=None, daemon=None):
         print body
 
     # send mail
-    import smtplib
     from email.mime.text import MIMEText
+    from subprocess import Popen, PIPE
 
     msg = MIMEText(body)
 
-    msg['From'] = config['mailfrom']
+    msg['From']    = config['mailfrom']
+    msg['Subject'] = 'New login by %s from %s' % (userid, crc)
     if daemon is not None:
-        msg['Subject'] = 'New %s login by %s from %s' % (daemon, userid, crc)
-    else:
-        msg['Subject'] = 'New login by %s from %s' % (userid, crc)
+        msg['Subject'] += ' using %s' % daemon
 
     msg['To'] = config['mailto']
 
@@ -206,8 +205,8 @@ def check(config, userid, ipaddr, hostname=None, daemon=None):
         print 'Sending mail to %s' % config['mailto']
 
     try:
-        smtp = smtplib.SMTP(config['smtphost'])
-        smtp.sendmail(config['mailfrom'], config['mailto'], msg.as_string())
+        p = Popen(["/usr/sbin/sendmail", "-t"], stdin=PIPE)
+        p.communicate(msg.as_string())
     except Exception, ex:
         print 'Sending mail failed: %s' % ex
 
