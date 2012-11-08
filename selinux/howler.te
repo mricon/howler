@@ -1,8 +1,15 @@
-policy_module(howler,1.0.1)
+policy_module(howler,1.0.2)
 
 require {
-	type syslogd_t;
+    type syslogd_t;
+    type proc_t;
+    type system_mail_t;
+
+    class file { read getattr open };
+    class unix_dgram_socket { getattr ioctl };
+    class tcp_socket { getattr ioctl };
 }
+
 ########################################
 #
 # Declarations
@@ -27,4 +34,31 @@ read_files_pattern(howler_t, howler_etc_t, howler_etc_t)
 manage_files_pattern(howler_t, howler_var_lib_t, howler_var_lib_t)
 mta_send_mail(howler_t)
 
+# It appears it must be able to execute /usr/bin/python
+corecmd_exec_bin(syslogd_t)
 howler_domtrans(syslogd_t)
+
+# /usr/bin/sendmail is a series of links
+read_lnk_files_pattern(howler_t, etc_t, etc_t)
+
+# For establishing a fifo to sendmail
+allow howler_t self:fifo_file manage_fifo_file_perms;
+
+# Python does this
+miscfiles_read_localization(howler_t)
+
+# It wants to getattr /usr/bin/sqlite3
+corecmd_getattr_bin_files(howler_t)
+
+# Dontaudits
+# Not sure why it wants to getattr syslogd_t's tcp_socket
+domain_dontaudit_getattr_all_tcp_sockets(howler_t)
+# wants to read meminfo
+dontaudit howler_t proc_t:file { read getattr open };
+# Not sure why it wants to getattr syslogd_t's dgram sockets
+dontaudit howler_t syslogd_t:unix_dgram_socket { getattr ioctl };
+
+# This is just bogus
+dontaudit system_mail_t syslogd_t:tcp_socket getattr;
+
+
