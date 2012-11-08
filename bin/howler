@@ -14,6 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import absolute_import
+
 import sys
 import howler
 
@@ -72,6 +74,6 @@ if __name__ == '__main__':
         howler.not_after(config, userid, ip_addr, opts.not_after)
         sys.exit(0)
 
-    howler.check(config, userid, ip_addr, hostname=opts.hostname,
-                 daemon=opts.daemon)
+    ret = howler.check(config, userid, ip_addr, hostname=opts.hostname,
+                       daemon=opts.daemon, sendmail=True)
 

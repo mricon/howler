@@ -22,18 +22,16 @@ import datetime
 HOWLER_VERSION = '0.1'
 DBVERSION      = 1
 
-def connect_last_seen(config):
+def connect_last_seen(dbdir):
     import anydbm
-    last_seen_path = os.path.abspath(os.path.join(config['dbdir'],
-                                     'last_seen.db'))
+    last_seen_path = os.path.abspath(os.path.join(dbdir, 'last_seen.db'))
     last_seen = anydbm.open(last_seen_path, 'c')
     return last_seen
 
-def connect_locations(config):
+def connect_locations(dbdir):
     import sqlite3
     # open sqlite db, creating it if we need to
-    locations_db_path = os.path.abspath(os.path.join(config['dbdir'],
-                                        'locations.sqlite'))
+    locations_db_path = os.path.abspath(os.path.join(dbdir, 'locations.sqlite'))
 
     if not os.path.exists(locations_db_path):
         # create the database
@@ -91,7 +89,7 @@ def get_geoip_crc(config, ipaddr):
 def not_after(config, userid, ipaddr, not_after):
     crc = get_geoip_crc(config, ipaddr)
 
-    sconn = connect_locations(config)
+    sconn = connect_locations(config['dbdir'])
     scursor = sconn.cursor()
     query = """UPDATE locations SET not_after = ?
                 WHERE userid = ?
@@ -102,23 +100,23 @@ def not_after(config, userid, ipaddr, not_after):
         print '"%s" updated to expire on %s for %s' % (crc, not_after, userid)
     return
 
-def check(config, userid, ipaddr, hostname=None, daemon=None):
+def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
     # check if it's a user we should ignore
     if 'ignoreusers' in config.keys():
         ignoreusers = config['ignoreusers'].split(',')
         for ignoreuser in ignoreusers:
             if ignoreuser.strip() == userid:
-                return
+                return None
 
     # Check if the IP has changed since last login.
     # the last_seen database is anydbm, because it's fast
-    last_seen = connect_last_seen(config)
+    last_seen = connect_last_seen(config['dbdir'])
 
     if userid in last_seen.keys():
         if last_seen[userid] == ipaddr:
             if config['verbose']:
                 print 'Quick out: %s last seen from %s' % (userid, ipaddr)
-            return
+            return None
 
     # Record the last_seen ip
     last_seen[userid] = ipaddr
@@ -129,12 +127,12 @@ def check(config, userid, ipaddr, hostname=None, daemon=None):
     if crc is None:
         if config['verbose']:
             print 'GeoIP City database did not return anything for %s' % ipaddr
-        return
+        return None
 
     if config['verbose']:
         print 'Location: %s' % crc
 
-    sconn = connect_locations(config)
+    sconn = connect_locations(config['dbdir'])
     scursor = sconn.cursor()
 
     query = """SELECT location, last_seen
@@ -154,7 +152,7 @@ def check(config, userid, ipaddr, hostname=None, daemon=None):
                           AND location = ?"""
             scursor.execute(query, (userid, crc))
             sconn.commit()
-            return
+            return None
 
         locations.append(row)
 
@@ -172,11 +170,20 @@ def check(config, userid, ipaddr, hostname=None, daemon=None):
         if not config['alertnew']:
             if config['verbose']:
                 print 'Quietly added new user %s' % userid
-            return
+            return None
         if config['verbose']:
             print 'Added new user %s' % userid
 
-    # Now proceed to howling
+    retval = {
+            'location': crc,
+            'previous': locations,
+            }
+
+    if not sendmail:
+        if config['verbose']:
+            print 'Not sending mail, as requested.'
+        return retval
+
     body = (u"This user logged in from a new location:\n\n" +
             u"\tUser    : %s\n" % userid +
             u"\tIP Addr : %s\n" % ipaddr +
@@ -216,8 +223,10 @@ def check(config, userid, ipaddr, hostname=None, daemon=None):
     except Exception, ex:
         print 'Sending mail failed: %s' % ex
 
+    return retval
+
 def cleanup(config):
-    sconn   = connect_locations(config)
+    sconn   = connect_locations(config['dbdir'])
     scursor = sconn.cursor()
 
     # Delete all entries that are older than staledays
@@ -241,7 +250,7 @@ def cleanup(config):
         cleaned_userids.append(row[0])
     sconn.close()
 
-    last_seen = connect_last_seen(config)
+    last_seen = connect_last_seen(config['dbdir'])
     for userid in last_seen.keys():
         if userid not in cleaned_userids:
             del(last_seen[userid])

@@ -64,7 +64,7 @@ while True:
 
         import howler
         howler.check(config, fields['userid'], fields['ipaddr'],
-                hostname=hostname, daemon=daemon)
+                hostname=hostname, daemon=daemon, sendmail=True)
 
         sys.exit(0)
 
