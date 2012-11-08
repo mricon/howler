@@ -22,9 +22,9 @@ users log in from a location previously not seen. This package contains
 core python libraries and the commandline utility.
 
 %package -n howler-rsyslog
-Summary:    Rsyslog hooks and helper for howler
-Requires:   python-howler = %{version}-%{release}
-PreReq:     howler-selinux = %{version}-%{release}
+Summary:        Rsyslog hooks and helper for howler
+Requires:       python-howler = %{version}-%{release}
+Requires(post): howler-selinux = %{version}-%{release}
 
 %description -n howler-rsyslog
 Hooks into rsyslog and passes matching entries to howler for location
@@ -32,8 +32,8 @@ analysis.
 
 %package -n howler-selinux
 Summary:    SELinux policies for howler
-PreReq:     python-howler = %{version}-%{release}
 Requires:   selinux-policy >= %{selinux_policyver}
+Requires(post):   python-howler = %{version}-%{release}
 Requires(post):   /usr/sbin/semodule, /sbin/restorecon, /sbin/fixfiles
 Requires(postun): /usr/sbin/semodule, /sbin/restorecon, /sbin/fixfiles
 
@@ -105,16 +105,17 @@ fi
 %config(noreplace) %{_sysconfdir}/howler/howler.ini
 %config(noreplace) %{_sysconfdir}/cron.daily/*
 %{python_sitelib}
-%{_bindir}/*
+%{_bindir}/howler
 %{_localstatedir}/lib/howler
 
 %files -n howler-rsyslog
 %config(noreplace) %{_sysconfdir}/rsyslog.d/*
 %config(noreplace) %{_sysconfdir}/howler/syslog-regexes
+%{_bindir}/howler-syslog-helper
 
 %files -n howler-selinux
 %defattr(-,root,root,0755)
-%doc selinux/*.{fc,if,sh,te}
+%doc selinux/*.{fc,if,te}
 %{_datadir}/selinux/*/howler.pp
 
 
