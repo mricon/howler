@@ -27,14 +27,30 @@ Is this mostly noise? Oh, sure. However, after the initial barrage of
 emails as users' locations are recorded, the alerts will stop arriving
 all the time and become more meaningful.
 
+Example email::
+
+    This user logged in from a new location:
+
+            User    : mricon
+            IP Addr : 198.145.x.x
+            Location: Portland, Oregon, US
+            Hostname: myhost.kernel.org
+            Daemon  : ssh2
+
+    Previously seen locations for this user:
+            2012-11-08: Monteal, Quebec, CA
+            2012-11-08: Cambridge, Cambridgeshire, GB
+            2012-11-06: Barcelona, Catalonia, ES
+            2012-11-06: Yekaterinburg, Sverdlovskaya Oblast, RU
+
 INSTALLING
 ----------
 Just use the RPM. If you can't use the RPM, you can probably figure out
 where things go on your own. :) Yes, this section is TODO.
 
-Note that for howler to be more useful than just announcing the country
+**Note that for howler to be more useful than just announcing the country
 code, you'll need to download GeoLiteCity.dat. You can get it from
-maxmind.com for free (but it's not redistributable).
+maxmind.com for free (but it's not redistributable).**
 
 OPERATION
 ---------
