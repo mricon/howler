@@ -69,9 +69,17 @@ def get_geoip_crc(config, ipaddr):
         if not ginfo:
             return None
 
-        crc = u'%s, %s, %s' % (unicode(ginfo['city'], 'iso-8859-1'),
-                               unicode(ginfo['region_name'], 'iso-8859-1'),
-                               unicode(ginfo['country_code'], 'iso-8859-1'))
+        city = region_name = country_code = 'Unknown'
+
+        if ginfo['city'] is not None:
+            city = unicode(ginfo['city'], 'iso-8859-1')
+        if ginfo['region_name'] is not None:
+            region_name = unicode(ginfo['region_name'], 'iso-8859-1')
+        if ginfo['country_code'] is not None:
+            country_code = unicode(ginfo['country_code'], 'iso-8859-1')
+
+        crc = u'%s, %s, %s' % (city, region_name, country_code)
+
     else:
         gi  = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
         crc = unicode(gi.country_code_by_addr(ipaddr), 'iso-8859-1')
