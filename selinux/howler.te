@@ -18,6 +18,7 @@ require {
 type howler_t;
 type howler_exec_t;
 application_domain(howler_t, howler_exec_t)
+
 role system_r types howler_t;
 
 type howler_etc_t;
@@ -34,7 +35,9 @@ read_files_pattern(howler_t, howler_etc_t, howler_etc_t)
 manage_files_pattern(howler_t, howler_var_lib_t, howler_var_lib_t)
 mta_send_mail(howler_t)
 
-# It appears it must be able to execute /usr/bin/python
+# It appears syslogd_t must be able to execute /usr/bin/python
+# I'm not thrilled at letting it execute bin_t, but what can you 
+# do in this case. At least it's not exec_no_domtrans.
 corecmd_exec_bin(syslogd_t)
 howler_domtrans(syslogd_t)
 
@@ -46,19 +49,17 @@ allow howler_t self:fifo_file manage_fifo_file_perms;
 
 # Python does this
 miscfiles_read_localization(howler_t)
+dev_read_urand(howler_t)
 
 # It wants to getattr /usr/bin/sqlite3
 corecmd_getattr_bin_files(howler_t)
 
 # Dontaudits
-# Not sure why it wants to getattr syslogd_t's tcp_socket
-domain_dontaudit_getattr_all_tcp_sockets(howler_t)
+# Not sure why it wants to getattr/ioctl syslogd_t's sockets, 
+# but it doesn't need to do that.
+dontaudit howler_t      syslogd_t:unix_dgram_socket { getattr ioctl };
+dontaudit howler_t      syslogd_t:tcp_socket        { getattr ioctl };
+dontaudit system_mail_t syslogd_t:tcp_socket        { getattr ioctl };
 # wants to read meminfo
 dontaudit howler_t proc_t:file { read getattr open };
-# Not sure why it wants to getattr syslogd_t's dgram sockets
-dontaudit howler_t syslogd_t:unix_dgram_socket { getattr ioctl };
-
-# This is just bogus
-dontaudit system_mail_t syslogd_t:tcp_socket getattr;
-
 
