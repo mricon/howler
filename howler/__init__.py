@@ -19,7 +19,7 @@ import sys
 
 import datetime
 
-HOWLER_VERSION = '0.1'
+HOWLER_VERSION = '0.2'
 DBVERSION      = 1
 
 def connect_last_seen(dbdir):
