@@ -1,4 +1,5 @@
-/usr/bin/howl                  --    gen_context(system_u:object_r:howler_exec_t,s0)
+/usr/bin/howler                --    gen_context(system_u:object_r:howler_exec_t,s0)
 /usr/bin/howler-syslog-helper  --    gen_context(system_u:object_r:howler_exec_t,s0)
 /etc/howler(/.*)?                    gen_context(system_u:object_r:howler_etc_t,s0)
 /var/lib/howler(/.*)?                gen_context(system_u:object_r:howler_var_lib_t,s0)
+

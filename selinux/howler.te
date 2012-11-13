@@ -1,4 +1,4 @@
-policy_module(howler,1.0.5)
+policy_module(howler,1.0.6)
 
 require {
     type syslogd_t;
@@ -50,6 +50,7 @@ allow howler_t self:fifo_file manage_fifo_file_perms;
 # Python does this
 miscfiles_read_localization(howler_t)
 dev_read_urand(howler_t)
+files_read_etc_files(howler_t)
 
 # It wants to getattr /usr/bin/sqlite3
 corecmd_getattr_bin_files(howler_t)
