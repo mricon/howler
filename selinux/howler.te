@@ -1,4 +1,4 @@
-policy_module(howler,1.0.6)
+policy_module(howler,1.0.7)
 
 require {
     type syslogd_t;
@@ -33,6 +33,7 @@ files_type(howler_var_lib_t)
 #
 read_files_pattern(howler_t, howler_etc_t, howler_etc_t)
 manage_files_pattern(howler_t, howler_var_lib_t, howler_var_lib_t)
+files_search_var_lib(howler_t)
 mta_send_mail(howler_t)
 
 # It appears syslogd_t must be able to execute /usr/bin/python
