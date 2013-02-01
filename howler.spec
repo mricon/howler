@@ -14,6 +14,7 @@ URL:        https://github.com/mricon/howler
 Source0:    howler-%{version}.tar.gz
 
 Requires:   python-GeoIP, /usr/sbin/sendmail
+BuildRequires:	selinux-policy, hardlink
 BuildArch:  noarch
 
 %description
