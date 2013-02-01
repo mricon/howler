@@ -13,7 +13,7 @@ License:    GPLv3+
 URL:        https://github.com/mricon/howler
 Source0:    howler-%{version}.tar.gz
 
-Requires:   python-GeoIP, /usr/sbin/sendmail
+Requires:   python-GeoIP, /usr/sbin/sendmail, python-unidecode
 BuildRequires:	selinux-policy, hardlink
 BuildArch:  noarch
 
