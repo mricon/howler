@@ -33,10 +33,10 @@ while True:
     if not regline:
         sys.exit(0)
 
-    if regline[0] == '#':
-        continue
-
     regline = regline.strip()
+
+    if not len(regline) or regline[0] == '#':
+        continue
 
     res = re.search(regline, logline)
 
