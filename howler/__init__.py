@@ -167,7 +167,7 @@ def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
 
     if len(locations) == 0:
         # New user. Finish up if we don't notify about new users
-        if not config['alertnew']:
+        if config['alertnew'] != 'True':
             if config['verbose']:
                 print 'Quietly added new user %s' % userid
             return None
