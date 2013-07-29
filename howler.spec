@@ -6,7 +6,7 @@
 
 Name:       python-howler
 Version:    0.2
-Release:    1%{?dist}
+Release:    2%{?dist}
 Summary:    Alert when users log in from new locations
 
 License:    GPLv3+
@@ -82,6 +82,12 @@ do
 done
 /usr/sbin/hardlink -cv %{buildroot}%{_datadir}/selinux
 
+%post -n howler-rsyslog
+/sbin/fixfiles -R howler-rsyslog restore || :
+
+%postun -n howler-rsyslog
+/sbin/fixfiles -R howler-rsyslog restore %{fixfiles_dirs} || :
+
 %post -n howler-selinux
 for selinuxvariant in %{selinux_variants}
 do
@@ -121,6 +127,9 @@ fi
 
 
 %changelog
+* Sun Jun 16 2013 Rene Cunningham <rene@linuxfoundation.org>
+- Run fixfiles for howler-rsyslog.
+
 * Thu Nov 08 2012 Konstantin Ryabitsev <mricon@kernel.org>
 - Update to 0.2 and split into subpackages.
 - Add selinux subpackage.
