@@ -17,10 +17,65 @@
 import os
 import sys
 
-import datetime
+import logging
 
-HOWLER_VERSION = '0.2'
+import datetime
+import GeoIP
+
+HOWLER_VERSION = '0.3'
 DBVERSION      = 1
+
+# Use this to track our global geoip db connection
+gi = None
+
+logger = logging.getLogger(__name__)
+
+# Code taken from http://www.johndcook.com/python_longitude_latitude.html
+# It is in the public domain
+def distance_on_unit_sphere(lat1, long1, lat2, long2):
+    import math
+
+    # Convert latitude and longitude to 
+    # spherical coordinates in radians.
+    degrees_to_radians = math.pi/180.0
+
+    # phi = 90 - latitude
+    phi1 = (90.0 - lat1)*degrees_to_radians
+    phi2 = (90.0 - lat2)*degrees_to_radians
+
+    # theta = longitude
+    theta1 = long1*degrees_to_radians
+    theta2 = long2*degrees_to_radians
+
+    # Compute spherical distance from spherical coordinates.
+    # For two locations in spherical coordinates
+    # (1, theta, phi) and (1, theta, phi)
+    # cosine( arc length ) =
+    #    sin phi sin phi' cos(theta-theta') + cos phi cos phi'
+    # distance = rho * arc length
+
+    cos = (math.sin(phi1)*math.sin(phi2)*math.cos(theta1 - theta2) +
+           math.cos(phi1)*math.cos(phi2))
+    arc = math.acos( cos )
+
+    # Remember to multiply arc by the radius of the earth 
+    # in your favorite set of units to get length.
+    return arc
+
+def connect_geoip(dbpath):
+    global gi
+    if gi is not None:
+        return gi
+
+    # Open the GeoIP database and perform the lookup
+    if os.path.exists(dbpath):
+        logger.debug('Opening geoip db in %s' % dbpath)
+        gi = GeoIP.open(dbpath, GeoIP.GEOIP_STANDARD)
+    else:
+        logger.debug('%s does not exist, using basic geoip db' % dbpath)
+        gi = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
+
+    return gi
 
 def connect_last_seen(dbdir):
     import anydbm
@@ -57,16 +112,32 @@ def connect_locations(dbdir):
 
     return sconn
 
-def get_geoip_crc(config, ipaddr):
-    import GeoIP
-    # Open the GeoIP database and perform the lookup
-    if os.path.exists(config['geoipcitydb']):
-        gi    = GeoIP.open(config['geoipcitydb'], GeoIP.GEOIP_STANDARD)
-        ginfo = gi.record_by_addr(ipaddr)
+def get_distance_between_ips(gi, ipaddr1, ipaddr2):
+    logger.debug('Calculating distance between %s and %s' % (ipaddr1, ipaddr2))
+    rec1 = gi.record_by_addr(ipaddr1)
+    if not rec1 or 'longitude' not in rec1.keys():
+        logger.debug('No long/lat information for IP %s' % ipaddr1)
+        return None
 
-        if not ginfo:
-            return None
+    rec2 = gi.record_by_addr(ipaddr2)
+    if not rec2 or 'longitude' not in rec2.keys():
+        logger.debug('No long/lat information for IP %s' % ipaddr2)
+        return None
 
+    dist = distance_on_unit_sphere(
+            rec1['latitude'],
+            rec1['longitude'],
+            rec2['latitude'],
+            rec2['longitude'])
+    distkm = int(dist*6373)
+    logger.info('Distance between %s and %s is %s km' % 
+            (ipaddr1, ipaddr2, distkm))
+    return distkm
+
+def get_geoip_crc(gi, ipaddr):
+    ginfo = gi.record_by_addr(ipaddr)
+
+    if ginfo is not None:
         city = region_name = country_code = 'Unknown'
 
         if ginfo['city'] is not None:
@@ -79,7 +150,7 @@ def get_geoip_crc(config, ipaddr):
         crc = u'%s, %s, %s' % (city, region_name, country_code)
 
     else:
-        gi  = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
+        # try just the country code, then
         crc = unicode(gi.country_code_by_addr(ipaddr), 'iso-8859-1')
         if not crc:
             return None
@@ -87,7 +158,8 @@ def get_geoip_crc(config, ipaddr):
     return crc
 
 def not_after(config, userid, ipaddr, not_after):
-    crc = get_geoip_crc(config, ipaddr)
+    gi = connect_geoip(config['geoipcitydb'])
+    crc = get_geoip_crc(gi, ipaddr)
 
     sconn = connect_locations(config['dbdir'])
     scursor = sconn.cursor()
@@ -96,8 +168,7 @@ def not_after(config, userid, ipaddr, not_after):
                   AND location = ?"""
     scursor.execute(query, (not_after, userid, crc))
     sconn.commit()
-    if config['verbose']:
-        print '"%s" updated to expire on %s for %s' % (crc, not_after, userid)
+    logger.info('"%s" updated to expire on %s for %s' % (crc, not_after, userid))
     return
 
 def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
@@ -112,25 +183,41 @@ def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
     # the last_seen database is anydbm, because it's fast
     last_seen = connect_last_seen(config['dbdir'])
 
+    prev_ipaddr = None
     if userid in last_seen.keys():
-        if last_seen[userid] == ipaddr:
-            if config['verbose']:
-                print 'Quick out: %s last seen from %s' % (userid, ipaddr)
+        prev_ipaddr = last_seen[userid]
+        if prev_ipaddr == ipaddr:
+            logger.info('Quick out: %s last seen from %s' % (userid, ipaddr))
             return None
+
+    gi = connect_geoip(config['geoipcitydb'])
 
     # Record the last_seen ip
     last_seen[userid] = ipaddr
     last_seen.close()
 
-    crc = get_geoip_crc(config, ipaddr)
+    if 'mindistance' in config.keys() and prev_ipaddr is not None:
+        # calculate distance between previous and new ips
+        dist = get_distance_between_ips(gi, prev_ipaddr, ipaddr)
+        if dist is not None and dist < int(config['mindistance']):
+            logger.info('Distance between IPs less than %s km, not recording'
+                    % config['mindistance'])
+            return None
+
+    crc = get_geoip_crc(gi, ipaddr)
 
     if crc is None:
-        if config['verbose']:
-            print 'GeoIP City database did not return anything for %s' % ipaddr
+        logger.info('GeoIP City database did not return anything for %s'
+                    % ipaddr)
         return None
 
-    if config['verbose']:
-        print 'Location: %s' % crc
+    logger.info('Location: %s' % crc)
+
+    if 'ignorelocations' in config.keys() and len(config['ignorelocations']):
+        for entry in config['ignorelocations'].split('\n'):
+            if crc == entry.strip():
+                logger.info('Not recording ignored location: %s' % crc)
+                return
 
     sconn = connect_locations(config['dbdir'])
     scursor = sconn.cursor()
@@ -143,8 +230,7 @@ def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
     locations = []
     for row in scursor.execute(query, (userid,)):
         if row[0] == crc:
-            if config['verbose']:
-                print 'This location already seen on %s' % row[1]
+            logger.info('This location already seen on %s' % row[1])
             # Update last_seen
             query = """UPDATE locations
                           SET last_seen = CURRENT_DATE
@@ -168,26 +254,38 @@ def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
     if len(locations) == 0:
         # New user. Finish up if we don't notify about new users
         if config['alertnew'] != 'True':
-            if config['verbose']:
-                print 'Quietly added new user %s' % userid
+            logger.info('Quietly added new user %s' % userid)
             return None
-        if config['verbose']:
-            print 'Added new user %s' % userid
+        logger.info('Added new user %s' % userid)
+    else:
+        logger.info('Added new location for user %s' % userid)
 
     retval = {
             'location': crc,
             'previous': locations,
             }
 
+    if 'mailto' not in config.keys() or not len(config['mailto']):
+        return retval
+
     if not sendmail:
-        if config['verbose']:
-            print 'Not sending mail, as requested.'
+        logger.info('Not sending mail, as requested.')
         return retval
 
     body = (u"This user logged in from a new location:\n\n" +
             u"\tUser    : %s\n" % userid +
             u"\tIP Addr : %s\n" % ipaddr +
             u"\tLocation: %s\n" % crc)
+
+    # Try to lookup whois info if cymruwhois is available
+    try:
+        import cymruwhois
+        cym = cymruwhois.Client()
+        res = cym.lookup(ipaddr)
+        if res.owner and res.cc:
+            body += u"\tIP Owner: %s/%s\n" % (res.owner, res.cc)
+    except:
+        pass
 
     if hostname is not None:
         body += u"\tHostname: %s\n" % hostname
@@ -201,8 +299,8 @@ def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
 
     body += u"\n\n-- \nBrought to you by howler %s\n" % HOWLER_VERSION
 
-    if config['verbose']:
-        print body
+    logger.debug('Message body follows')
+    logger.debug(body)
 
     # send mail
     from email.mime.text import MIMEText
@@ -214,8 +312,7 @@ def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
     msg['Subject'] = u'New login by %s from %s' % (userid, crc)
     msg['To']      = config['mailto']
 
-    if config['verbose']:
-        print 'Sending mail to %s' % config['mailto']
+    logger.info('Sending mail to %s' % config['mailto'])
 
     try:
         p = Popen(["/usr/sbin/sendmail", "-t"], stdin=PIPE)

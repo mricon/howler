@@ -18,12 +18,17 @@ import sys
 import os
 import re
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 if len(sys.argv) != 2:
     print 'Usage: %s syslog-line' % (sys.argv[0])
     sys.exit(1)
 
 logline = sys.argv[1]
 
+## XXX: Need to not hardcode this
 CONFIG  ='/etc/howler/howler.ini'
 REGEXES ='/etc/howler/syslog-regexes'
 
@@ -41,11 +46,8 @@ while True:
     res = re.search(regline, logline)
 
     if res:
+        import howler
         from ConfigParser import ConfigParser
-
-        config = {
-            'verbose' : False,
-            }
 
         hostname = None
         daemon   = None
@@ -53,8 +55,37 @@ while True:
         ini = ConfigParser()
         ini.read(CONFIG)
 
+        config = {}
+
         for (option, value) in ini.items('main'):
             config[option] = value
+
+        logger.setLevel(logging.DEBUG)
+
+        ch = logging.StreamHandler()
+        formatter = logging.Formatter('%(message)s')
+        ch.setFormatter(formatter)
+
+        ch.setLevel(logging.CRITICAL)
+
+        logger.addHandler(ch)
+
+        if 'logfile' in config.keys() and len(config['logfile']):
+            ch = logging.FileHandler(config['logfile'])
+            formatter = logging.Formatter("[%(process)d] %(asctime)s - %(levelname)s - %(message)s")
+            ch.setFormatter(formatter)
+
+            loglevel = logging.INFO
+
+            if 'loglevel' in config.keys():
+                if config['loglevel'] == 'debug':
+                    loglevel = logging.DEBUG
+
+            ch.setLevel(loglevel)
+            logger.addHandler(ch)
+
+        # push our logger into howler to override the default
+        howler.logger = logger
 
         fields = res.groupdict()
         if 'hostname' in fields.keys():
@@ -62,7 +93,6 @@ while True:
         if 'daemon' in fields.keys():
             daemon = fields['daemon']
 
-        import howler
         howler.check(config, fields['userid'], fields['ipaddr'],
                 hostname=hostname, daemon=daemon, sendmail=True)
 
