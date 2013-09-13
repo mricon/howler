@@ -5,8 +5,8 @@
 %global selinux_variants mls strict targeted
 
 Name:       python-howler
-Version:    0.2
-Release:    2%{?dist}
+Version:    0.3
+Release:    0.pre.1%{?dist}
 Summary:    Alert when users log in from new locations
 
 License:    GPLv3+
@@ -127,6 +127,9 @@ fi
 
 
 %changelog
+* Fri Sep 13 2013 Konstantin Ryabitsev <mricon@kernel.org>
+- Preliminary 0.3 release with new features.
+
 * Sun Jun 16 2013 Rene Cunningham <rene@linuxfoundation.org>
 - Run fixfiles for howler-rsyslog.
 
