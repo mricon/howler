@@ -1,4 +1,4 @@
-policy_module(howler,1.0.8)
+policy_module(howler,1.0.9)
 
 require {
     type syslogd_t;
@@ -66,6 +66,7 @@ setattr_files_pattern(howler_t, howler_log_t, howler_log_t)
 logging_log_filetrans(howler_t, howler_log_t, file)
 
 # Connecting to whois server
+sysnet_dns_name_resolve(howler_t)
 corenet_sendrecv_whois_client_packets(howler_t)
 corenet_tcp_connect_whois_port(howler_t)
 corenet_tcp_sendrecv_whois_port(howler_t)
