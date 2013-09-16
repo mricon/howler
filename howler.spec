@@ -74,7 +74,7 @@ install -m 0644 conf/howler-rsyslog.conf \
 
 mkdir -p %{buildroot}%{_sysconfdir}/logrotate.d
 install -m 0644 conf/logrotate.conf \
-    %{buildroot}{%_sysconfdir}/logrotate.d/howler.conf
+    %{buildroot}%{_sysconfdir}/logrotate.d/howler.conf
 
 mkdir -p %{buildroot}%{_localstatedir}/lib/howler
 mkdir -p %{buildroot}%{_localstatedir}/log/howler
