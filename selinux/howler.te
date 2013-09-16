@@ -1,4 +1,4 @@
-policy_module(howler,1.0.7)
+policy_module(howler,1.0.8)
 
 require {
     type syslogd_t;
@@ -26,6 +26,9 @@ files_config_file(howler_etc_t)
 
 type howler_var_lib_t;
 files_type(howler_var_lib_t)
+
+type howler_log_t;
+logging_log_file(howler_log_t)
 
 ########################################
 #
@@ -55,6 +58,17 @@ files_read_etc_files(howler_t)
 
 # It wants to getattr /usr/bin/sqlite3
 corecmd_getattr_bin_files(howler_t)
+
+# logging
+append_files_pattern(howler_t, howler_log_t, howler_log_t)
+create_files_pattern(howler_t, howler_log_t, howler_log_t)
+setattr_files_pattern(howler_t, howler_log_t, howler_log_t)
+logging_log_filetrans(howler_t, howler_log_t, file)
+
+# Connecting to whois server
+corenet_sendrecv_whois_client_packets(howler_t)
+corenet_tcp_connect_whois_port(howler_t)
+corenet_tcp_sendrecv_whois_port(howler_t)
 
 # Dontaudits
 # Not sure why it wants to getattr/ioctl syslogd_t's sockets, 

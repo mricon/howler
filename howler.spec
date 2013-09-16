@@ -6,16 +6,17 @@
 
 Name:       python-howler
 Version:    0.3
-Release:    0.pre.1%{?dist}
+Release:    0.pre.2%{?dist}
 Summary:    Alert when users log in from new locations
 
 License:    GPLv3+
 URL:        https://github.com/mricon/howler
 Source0:    howler-%{version}.tar.gz
 
-Requires:   python-GeoIP, /usr/sbin/sendmail, python-unidecode
-BuildRequires:	selinux-policy, selinux-policy-doc, hardlink
+Requires:   python-GeoIP, /usr/sbin/sendmail, python-unidecode, logrotate
 BuildArch:  noarch
+
+BuildRequires: selinux-policy, selinux-policy-doc, hardlink
 
 %description
 Keeps a database of usernames and IPs/locations and alerts the admins when
@@ -71,7 +72,13 @@ mkdir -p %{buildroot}%{_sysconfdir}/rsyslog.d
 install -m 0644 conf/howler-rsyslog.conf \
     %{buildroot}%{_sysconfdir}/rsyslog.d/howler.conf
 
+mkdir -p %{buildroot}%{_sysconfdir}/logrotate.d
+install -m 0644 conf/logrotate.conf \
+    %{buildroot}{%_sysconfdir}/logrotate.d/howler.conf
+
 mkdir -p %{buildroot}%{_localstatedir}/lib/howler
+mkdir -p %{buildroot}%{_localstatedir}/log/howler
+
 
 # Install SELinux files
 for selinuxvariant in %{selinux_variants}
@@ -111,9 +118,11 @@ fi
 %config %dir %{_sysconfdir}/howler
 %config(noreplace) %{_sysconfdir}/howler/howler.ini
 %config(noreplace) %{_sysconfdir}/cron.daily/*
+%config(noreplace) %{_sysconfdir}/logrotate.d/howler.conf
 %{python_sitelib}
 %{_bindir}/howler
 %{_localstatedir}/lib/howler
+%{_localstatedir}/log/howler
 
 %files -n howler-rsyslog
 %config(noreplace) %{_sysconfdir}/rsyslog.d/*
