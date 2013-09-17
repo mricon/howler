@@ -151,9 +151,10 @@ def get_geoip_crc(gi, ipaddr):
 
     else:
         # try just the country code, then
-        crc = unicode(gi.country_code_by_addr(ipaddr), 'iso-8859-1')
+        crc = gi.country_code_by_addr(ipaddr)
         if not crc:
             return None
+        crc = unicode(crc, 'iso-8859-1')
 
     return crc
 
@@ -192,11 +193,16 @@ def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
             logger.info('Quick out: %s last seen from %s' % (userid, ipaddr))
             return None
 
-    if 'ignorelocations' in config.keys() and len(config['ignorelocations']):
-        for entry in config['ignorelocations'].split('\n'):
-            if crc == entry.strip():
-                logger.info('Quick out: %s in ignored locations' % crc)
-                return
+    if 'ignoreranges' in config.keys() and len(config['ignoreranges']):
+        import netaddr
+        na_ipaddr = netaddr.IPAddress(ipaddr)
+
+        for iprange in config['ignoreranges'].split('\n'):
+            # Most formats should be grokkable by netaddr
+            if na_ipaddr in netaddr.IPNetwork(iprange):
+                logger.info('Quick out: %s in ignored ranges (%s)' 
+                            % (ipaddr, iprange))
+                return None
 
     gi = connect_geoip(config['geoipcitydb'])
 
@@ -220,6 +226,12 @@ def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
         return None
 
     logger.info('Location: %s' % crc)
+
+    if 'ignorelocations' in config.keys() and len(config['ignorelocations']):
+        for entry in config['ignorelocations'].split('\n'):
+            if crc == entry.strip():
+                logger.info('Quick out: %s in ignored locations' % crc)
+                return None
 
     sconn = connect_locations(config['dbdir'])
     scursor = sconn.cursor()

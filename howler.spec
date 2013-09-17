@@ -6,7 +6,7 @@
 
 Name:       python-howler
 Version:    0.3
-Release:    0.pre.3%{?dist}
+Release:    0.pre.4%{?dist}
 Summary:    Alert when users log in from new locations
 
 License:    GPLv3+
@@ -14,6 +14,7 @@ URL:        https://github.com/mricon/howler
 Source0:    howler-%{version}.tar.gz
 
 Requires:   python-GeoIP, /usr/sbin/sendmail, python-unidecode, logrotate
+Requires:   python-netaddr
 BuildArch:  noarch
 
 BuildRequires: selinux-policy, selinux-policy-doc, hardlink

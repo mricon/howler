@@ -29,8 +29,8 @@ if len(sys.argv) != 2:
 logline = sys.argv[1]
 
 ## XXX: Need to not hardcode this
-CONFIG  ='/etc/howler/howler.ini'
-REGEXES ='/etc/howler/syslog-regexes'
+CONFIG  = '/etc/howler/howler.ini'
+REGEXES = '/etc/howler/syslog-regexes'
 
 fh = open(REGEXES, 'r')
 while True:
