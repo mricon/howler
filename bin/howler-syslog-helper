@@ -87,6 +87,9 @@ while True:
         # push our logger into howler to override the default
         howler.logger = logger
 
+        logger.debug('syslog line received: %s' % logline)
+        logger.debug('matching regex: %s' % regline)
+
         fields = res.groupdict()
         if 'hostname' in fields.keys():
             hostname = fields['hostname']
