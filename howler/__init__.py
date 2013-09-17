@@ -173,10 +173,12 @@ def not_after(config, userid, ipaddr, not_after):
 
 def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
     # check if it's a user we should ignore
+    logger.info('Checking: userid=%s, ipaddr=%s' % (userid, ipaddr))
     if 'ignoreusers' in config.keys():
         ignoreusers = config['ignoreusers'].split(',')
         for ignoreuser in ignoreusers:
             if ignoreuser.strip() == userid:
+                logger.info('Quick out: %s in ignore list' % userid)
                 return None
 
     # Check if the IP has changed since last login.
@@ -190,6 +192,12 @@ def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
             logger.info('Quick out: %s last seen from %s' % (userid, ipaddr))
             return None
 
+    if 'ignorelocations' in config.keys() and len(config['ignorelocations']):
+        for entry in config['ignorelocations'].split('\n'):
+            if crc == entry.strip():
+                logger.info('Quick out: %s in ignored locations' % crc)
+                return
+
     gi = connect_geoip(config['geoipcitydb'])
 
     # Record the last_seen ip
@@ -200,7 +208,7 @@ def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
         # calculate distance between previous and new ips
         dist = get_distance_between_ips(gi, prev_ipaddr, ipaddr)
         if dist is not None and dist < int(config['mindistance']):
-            logger.info('Distance between IPs less than %s km, not recording'
+            logger.info('Distance between IPs less than %s km, ignoring'
                     % config['mindistance'])
             return None
 
@@ -212,12 +220,6 @@ def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
         return None
 
     logger.info('Location: %s' % crc)
-
-    if 'ignorelocations' in config.keys() and len(config['ignorelocations']):
-        for entry in config['ignorelocations'].split('\n'):
-            if crc == entry.strip():
-                logger.info('Not recording ignored location: %s' % crc)
-                return
 
     sconn = connect_locations(config['dbdir'])
     scursor = sconn.cursor()
