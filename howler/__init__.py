@@ -311,7 +311,7 @@ def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
             hop_times = int(config['hop_times'])
         logger.debug('hop_times = %s' % hop_times)
 
-        tsnow = int(datetime.datetime.now().strftime('%s'))
+        tsnow = int(datetime.datetime.utcnow().strftime('%s'))
         logger.debug('Creating new entry in hopping')
         query = """INSERT INTO hopping (userid, location, seen_ts)
                                 VALUES (?, ?, ?)"""
@@ -323,29 +323,26 @@ def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
         scursor.execute(query, (tsold,))
 
         # Find all entries for this user
-        query = """SELECT location
+        query = """SELECT location, seen_ts
                      FROM hopping
                     WHERE reported = 0
-                      AND userid = ?"""
+                      AND userid = ?
+                 ORDER BY seen_ts DESC"""
         rows = scursor.execute(query, (userid,)).fetchall()
         if len(rows) >= hop_times:
-            body = (u"Locations seen for %s in the past %s hours:\n\n" 
+            body = (u"Locations seen for %s in the past %s hours (UTC):\n\n"
                     % (userid, hop_hours))
 
             query = """UPDATE hopping
                           SET reported = 1
                         WHERE userid = ?
-                          AND location = ?"""
-            hops = {}
-            for row in rows:
-                if row[0] in hops.keys():
-                    hops[row[0]] += 1
-                else:
-                    hops[row[0]] = 1
-                    scursor.execute(query, (userid, row[0]))
+                          AND location = ?
+                          AND seen_ts = ?"""
 
-            for location in hops.keys():
-                body += u"\t%s: %s times\n" % (location, hops[location])
+            for (seen_crc, seen_ts) in rows:
+                scursor.execute(query, (userid, seen_crc, seen_ts))
+                when = datetime.datetime.fromtimestamp(seen_ts).strftime('%T')
+                body += u"\t%s: %s\n" % (when, seen_crc)
 
             logger.info('Alert message:\n%s' % body)
 
