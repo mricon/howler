@@ -233,17 +233,6 @@ def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
                 logger.info('Quick out: %s in ignore list' % userid)
                 return None
 
-    # Check if the IP has changed since last login.
-    # the last_seen database is anydbm, because it's fast
-    last_seen = connect_last_seen(config['dbdir'])
-
-    prev_ipaddr = None
-    if userid in last_seen.keys():
-        prev_ipaddr = last_seen[userid]
-        if prev_ipaddr == ipaddr:
-            logger.info('Quick out: %s last seen from %s' % (userid, ipaddr))
-            return None
-
     if 'ignoreranges' in config.keys() and len(config['ignoreranges']):
         import netaddr
         na_ipaddr = netaddr.IPAddress(ipaddr)
@@ -254,6 +243,17 @@ def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
                 logger.info('Quick out: %s in ignored ranges (%s)' 
                             % (ipaddr, iprange))
                 return None
+
+    # Check if the IP has changed since last login.
+    # the last_seen database is anydbm, because it's fast
+    last_seen = connect_last_seen(config['dbdir'])
+
+    prev_ipaddr = None
+    if userid in last_seen.keys():
+        prev_ipaddr = last_seen[userid]
+        if prev_ipaddr == ipaddr:
+            logger.info('Quick out: %s last seen from %s' % (userid, ipaddr))
+            return None
 
     gi = connect_geoip(config['geoipcitydb'])
 
