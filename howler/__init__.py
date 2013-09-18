@@ -23,7 +23,7 @@ import datetime
 import GeoIP
 
 HOWLER_VERSION = '0.3'
-DBVERSION      = 1
+DBVERSION      = 2
 
 # Use this to track our global geoip db connection
 gi = None
@@ -58,7 +58,7 @@ def distance_on_unit_sphere(lat1, long1, lat2, long2):
            math.cos(phi1)*math.cos(phi2))
     arc = math.acos( cos )
 
-    # Remember to multiply arc by the radius of the earth 
+    # Remember to multiply arc by the radius of the earth
     # in your favorite set of units to get length.
     return arc
 
@@ -89,7 +89,7 @@ def connect_locations(dbdir):
     locations_db_path = os.path.abspath(os.path.join(dbdir, 'locations.sqlite'))
 
     if not os.path.exists(locations_db_path):
-        # create the database
+        logger.info('Creating new database in %s' % locations_db_path)
         sconn   = sqlite3.connect(locations_db_path)
         scursor = sconn.cursor()
 
@@ -98,6 +98,13 @@ def connect_locations(dbdir):
                           location  TEXT,
                           last_seen DATE DEFAULT CURRENT_DATE,
                           not_after DATE DEFAULT NULL)"""
+        scursor.execute(query)
+
+        query = """CREATE TABLE hopping (
+                          userid    TEXT,
+                          location  TEXT,
+                          seen_ts   INTEGER,
+                          reported  INTEGER DEFAULT 0)"""
         scursor.execute(query)
 
         query = """CREATE TABLE meta (
@@ -109,8 +116,46 @@ def connect_locations(dbdir):
         sconn.commit()
     else:
         sconn   = sqlite3.connect(locations_db_path)
+        scursor = sconn.cursor()
+
+        query   = """SELECT dbversion FROM meta"""
+        for row in scursor.execute(query):
+            my_dbversion = row[0]
+
+        if my_dbversion == 1:
+            logger.info('Upgrading database from version 1 to version 2')
+            query = """CREATE TABLE hopping (
+                              userid    TEXT,
+                              location  TEXT,
+                              seen_ts   INTEGER,
+                              reported  INTEGER DEFAULT 0)"""
+
+            scursor.execute(query)
+            query = 'UPDATE meta SET dbversion = 2'
+            scursor.execute(query)
 
     return sconn
+
+def send_email_alert(message, subject, from_addr, to_addr):
+    from email.mime.text import MIMEText
+    from subprocess import Popen, PIPE
+
+    message += u"\n\n-- \nBrought to you by howler %s\n" % HOWLER_VERSION
+
+    msg = MIMEText(message, 'plain', 'utf-8')
+
+    msg['From']    = from_addr
+    msg['To']      = to_addr
+    msg['Subject'] = subject
+
+    logger.info('Sending mail to %s' % to_addr)
+
+    try:
+        p = Popen(["/usr/sbin/sendmail", "-t"], stdin=PIPE)
+        p.communicate(msg.as_string())
+    except Exception, ex:
+        print 'Sending mail failed: %s' % ex
+
 
 def get_distance_between_ips(gi, ipaddr1, ipaddr2):
     logger.debug('Calculating distance between %s and %s' % (ipaddr1, ipaddr2))
@@ -173,6 +218,12 @@ def not_after(config, userid, ipaddr, not_after):
     return
 
 def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
+    if 'mailto' not in config.keys() or not len(config['mailto']):
+        sendmail = False
+    else:
+        from_addr = config['mailfrom']
+        to_addr = config['mailto']
+
     # check if it's a user we should ignore
     logger.info('Checking: userid=%s, ipaddr=%s' % (userid, ipaddr))
     if 'ignoreusers' in config.keys():
@@ -233,8 +284,76 @@ def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
                 logger.info('Quick out: %s in ignored locations' % crc)
                 return None
 
+    # is it different from the last-seen location?
+    prev_crc = None
+    if prev_ipaddr is not None:
+        prev_crc = get_geoip_crc(gi, prev_ipaddr)
+        logger.info('Previous location: %s' % prev_crc)
+
     sconn = connect_locations(config['dbdir'])
     scursor = sconn.cursor()
+
+    if ('hop_detect' in config.keys()
+            and config['hop_detect'] == 'yes'
+            and (prev_crc is None or prev_crc != crc)):
+        # Make sure hop_hours and hop_times is sane
+        if 'hop_hours' not in config.keys():
+            logger.warning('Please set hop_hours in howler.ini')
+            hop_hours = 12
+        else:
+            hop_hours = int(config['hop_hours'])
+        logger.debug('hop_hours = %s' % hop_hours)
+
+        if 'hop_times' not in config.keys():
+            logger.warning('Please set hop_times in howler.ini')
+            hop_times = 4
+        else:
+            hop_times = int(config['hop_times'])
+        logger.debug('hop_times = %s' % hop_times)
+
+        tsnow = int(datetime.datetime.now().strftime('%s'))
+        logger.debug('Creating new entry in hopping')
+        query = """INSERT INTO hopping (userid, location, seen_ts)
+                                VALUES (?, ?, ?)"""
+        scursor.execute(query, (userid, crc, tsnow))
+
+        logger.debug('Deleting obsolete entries in hopping')
+        tsold = tsnow - hop_hours*3600
+        query = 'DELETE FROM hopping WHERE seen_ts < ?'
+        scursor.execute(query, (tsold,))
+
+        # Find all entries for this user
+        query = """SELECT location
+                     FROM hopping
+                    WHERE reported = 0
+                      AND userid = ?"""
+        rows = scursor.execute(query, (userid,)).fetchall()
+        if len(rows) >= hop_times:
+            body = (u"Locations seen for %s in the past %s hours:\n\n" 
+                    % (userid, hop_hours))
+
+            query = """UPDATE hopping
+                          SET reported = 1
+                        WHERE userid = ?
+                          AND location = ?"""
+            hops = {}
+            for row in rows:
+                if row[0] in hops.keys():
+                    hops[row[0]] += 1
+                else:
+                    hops[row[0]] = 1
+                    scursor.execute(query, (userid, row[0]))
+
+            for location in hops.keys():
+                body += u"\t%s: %s times\n" % (location, hops[location])
+
+            logger.info('Alert message:\n%s' % body)
+
+            if sendmail:
+                subject = u'Hopping detected for user %s' % userid
+                send_email_alert(body, subject, from_addr, to_addr)
+
+        sconn.commit()
 
     query = """SELECT location, last_seen
                  FROM locations
@@ -274,17 +393,6 @@ def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
     else:
         logger.info('Added new location for user %s' % userid)
 
-    retval = {
-            'location': crc,
-            'previous': locations,
-            }
-
-    if 'mailto' not in config.keys() or not len(config['mailto']):
-        return retval
-
-    if not sendmail:
-        logger.info('Not sending mail, as requested.')
-        return retval
 
     body = (u"This user logged in from a new location:\n\n" +
             u"\tUser    : %s\n" % userid +
@@ -311,28 +419,16 @@ def check(config, userid, ipaddr, hostname=None, daemon=None, sendmail=True):
         for row in locations:
             body += u"\t%s: %s\n" % (row[1], row[0])
 
-    body += u"\n\n-- \nBrought to you by howler %s\n" % HOWLER_VERSION
+    logger.info('Alert message:\n%s' % body)
 
-    logger.debug('Message body follows')
-    logger.debug(body)
+    if sendmail:
+        subject = u'New login by %s from %s' % (userid, crc)
+        send_email_alert(body, subject, from_addr, to_addr)
 
-    # send mail
-    from email.mime.text import MIMEText
-    from subprocess import Popen, PIPE
-
-    msg = MIMEText(body, 'plain', 'utf-8')
-
-    msg['From']    = config['mailfrom']
-    msg['Subject'] = u'New login by %s from %s' % (userid, crc)
-    msg['To']      = config['mailto']
-
-    logger.info('Sending mail to %s' % config['mailto'])
-
-    try:
-        p = Popen(["/usr/sbin/sendmail", "-t"], stdin=PIPE)
-        p.communicate(msg.as_string())
-    except Exception, ex:
-        print 'Sending mail failed: %s' % ex
+    retval = {
+            'location': crc,
+            'previous': locations,
+            }
 
     return retval
 

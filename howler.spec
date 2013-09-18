@@ -6,7 +6,7 @@
 
 Name:       python-howler
 Version:    0.3
-Release:    0.pre.4%{?dist}
+Release:    0.pre.5%{?dist}
 Summary:    Alert when users log in from new locations
 
 License:    GPLv3+
