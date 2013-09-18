@@ -25,8 +25,10 @@ import GeoIP
 HOWLER_VERSION = '0.3'
 DBVERSION      = 2
 
-# Use this to track our global geoip db connection
-gi = None
+# Use this to track our global db connection
+gi_dbconn        = None
+last_seen_dbconn = None
+locations_dbconn = None
 
 logger = logging.getLogger(__name__)
 
@@ -63,27 +65,32 @@ def distance_on_unit_sphere(lat1, long1, lat2, long2):
     return arc
 
 def connect_geoip(dbpath):
-    global gi
-    if gi is not None:
-        return gi
+    global gi_dbconn
+    if gi_dbconn is None:
+        # Open the GeoIP database and store globally
+        if os.path.exists(dbpath):
+            logger.debug('Opening geoip db in %s' % dbpath)
+            gi_dbconn = GeoIP.open(dbpath, GeoIP.GEOIP_STANDARD)
+        else:
+            logger.debug('%s does not exist, using basic geoip db' % dbpath)
+            gi_dbconn = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
 
-    # Open the GeoIP database and perform the lookup
-    if os.path.exists(dbpath):
-        logger.debug('Opening geoip db in %s' % dbpath)
-        gi = GeoIP.open(dbpath, GeoIP.GEOIP_STANDARD)
-    else:
-        logger.debug('%s does not exist, using basic geoip db' % dbpath)
-        gi = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
-
-    return gi
+    return gi_dbconn
 
 def connect_last_seen(dbdir):
-    import anydbm
-    last_seen_path = os.path.abspath(os.path.join(dbdir, 'last_seen.db'))
-    last_seen = anydbm.open(last_seen_path, 'c')
-    return last_seen
+    global last_seen_dbconn
+    if last_seen_dbconn is None:
+        import anydbm
+        last_seen_path = os.path.abspath(os.path.join(dbdir, 'last_seen.db'))
+        last_seen_dbconn = anydbm.open(last_seen_path, 'c')
+
+    return last_seen_dbconn
 
 def connect_locations(dbdir):
+    global locations_dbconn
+    if locations_dbconn is not None:
+        return locations_dbconn
+
     import sqlite3
     # open sqlite db, creating it if we need to
     locations_db_path = os.path.abspath(os.path.join(dbdir, 'locations.sqlite'))
@@ -132,9 +139,11 @@ def connect_locations(dbdir):
 
             scursor.execute(query)
             query = 'UPDATE meta SET dbversion = 2'
+            sconn.commit()
             scursor.execute(query)
 
-    return sconn
+    locations_dbconn = sconn
+    return locations_dbconn
 
 def send_email_alert(message, subject, from_addr, to_addr):
     from email.mime.text import MIMEText
