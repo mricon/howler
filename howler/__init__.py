@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 def distance_on_unit_sphere(lat1, long1, lat2, long2):
     import math
 
-    # Convert latitude and longitude to 
+    # Convert latitude and longitude to
     # spherical coordinates in radians.
     degrees_to_radians = math.pi/180.0
 
@@ -177,6 +177,10 @@ def get_distance_between_ips(gi, ipaddr1, ipaddr2):
     if not rec2 or 'longitude' not in rec2.keys():
         logger.debug('No long/lat information for IP %s' % ipaddr2)
         return None
+
+    if (rec1['latitude'] == rec2['latitude'] and
+            rec1['longitude'] == rec2['longitude']):
+        return 0
 
     dist = distance_on_unit_sphere(
             rec1['latitude'],
