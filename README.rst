@@ -4,11 +4,11 @@ HOWLER
 Get notified when users log in from new locations
 -------------------------------------------------
 
-:Author:    mricon@kernel.org
-:Date:      2012-11-07
+:Author:    konstantin@linuxfoundation.org
+:Date:      2017-06-02
 :Copyright: The Linux Foundation and contributors
 :License:   GPLv3+
-:Version:   0.2
+:Version:   0.3
 
 DECRIPTION
 ----------
@@ -39,38 +39,29 @@ Example email::
 
     Previously seen locations for this user:
             2012-11-08: Monteal, Quebec, CA
-            2012-11-08: Cambridge, Cambridgeshire, GB
-            2012-11-06: Barcelona, Catalonia, ES
-            2012-11-06: Yekaterinburg, Sverdlovskaya Oblast, RU
 
 INSTALLING
 ----------
 Just use the RPM. If you can't use the RPM, you can probably figure out
-where things go on your own. :) Yes, this section is TODO.
+where things go on your own. :)
 
-**Note that for howler to be more useful than just announcing the country
-code, you'll need to download GeoLiteCity.dat. You can get it from
-maxmind.com for free (but it's not redistributable).**
+You'll probably want to install geoipupdate-cron to keep your city data
+updated.
 
 OPERATION
 ---------
-The only mechanism currently provided is via rsyslog. The default
-configuration works by sending all syslog strings coming from the 'sshd'
-daemon to howler-rsyslog-helper, which parses the info out of lines
-containing successful login information and sends that to howler.
+The easiest way to use howler is via SEC (Simple Event Correlator) that
+provides a mechanism for monitoring log files and triggering external
+tools when matches are discovered.
 
-Using rsyslog for this is sub-optimal, as it requires making an external
-exec call from the rsyslog process. If you have a lot of logins, this
-will probably interfere with rsyslog's operation and slow things down.
+See https://github.com/simple-evcorr/sec
 
-I will be adding Epylog support for Howler in the near future (for the 2
-people in the world who use Epylog). This can probably be made to work
-via journal, too.
+An example howler.sec file is included.
 
-Other contributions are welcomed!
+There is also a way to hook things up directly via rsyslog, but it is
+quirkier and requires installing an SELinux policy, so just go with SEC.
 
 SUPPORT
 -------
 Please use github project page https://github.com/mricon/howler to
 request support or features.
-

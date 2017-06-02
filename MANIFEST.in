@@ -1,6 +1,6 @@
 include COPYING
 include *.rst
-include selinux/*
+recursive-include rsyslog *
 recursive-include conf *
 recursive-include bin *
 include howler.spec

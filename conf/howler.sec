@@ -1,0 +1,19 @@
+# Configuration example for using with SEC (https://github.com/simple-evcorr/sec)
+
+type=single
+desc=sshd-login
+ptype=regexp
+pattern=(\S+)\s*sshd\[\d+\]: Accepted.*for\s*(\S+)\s*from\s*(:::f{4,6}:)?([\w\-.^_]+)\s*port\s\d+\s*(\S+)
+action=shellcmd /usr/bin/howler -s $1 -d sshd $2 $4
+
+type=single
+desc=openvpn-login
+ptype=regexp
+pattern=(\S+)\s*(\S+)\[\d+\]:\s*(:::f{4,6}:)?[\w\-.^_]+:\d+\s*\[(\S+)\]\s*Peer Connection Initiated with \[AF_INET\](:::f{4,6}:)?([\w\-.^_]+)
+action=shellcmd /usr/bin/howler -s $1 -d openvpn $4 $6
+
+type=single
+desc=gitolite-access
+ptype=regexp
+pattern=(\S+)\sgitolite.*?.*ssh.*ARGV=([^#]+).*SOC=(\S+)\s.*FROM=([\w\-.^_]+)
+action=shellcmd /usr/bin/howler -s $1 -d gitolite/$3 $2 $4

@@ -19,8 +19,9 @@ setup(
     name=NAME,
     description='Alert when users log in from new locations',
     author='Konstantin Ryabitsev',
-    author_email='mricon@kernel.org',
+    author_email='konstantin@linuxfoundation.org',
     packages=[NAME],
     license='GPLv3+',
     long_description=read('README.rst'),
+    scripts=['bin/howler'],
 )
