@@ -7,9 +7,11 @@ License:    GPLv3+
 URL:        https://github.com/mricon/howler
 Source0:    https://github.com/mricon/howler/archive/v%{version}.tar.gz
 
-Requires:   python-GeoIP, /usr/sbin/sendmail, python-unidecode, logrotate
-Requires:   python-netaddr
-BuildArch:  noarch
+Requires:   python-GeoIP, python-unidecode, python-netaddr
+Requires:   logrotate, /usr/sbin/sendmail
+
+BuildRequires: python2-devel
+BuildArch:     noarch
 
 %description
 Keeps a database of usernames and IPs/locations and alerts the admins when
@@ -38,7 +40,8 @@ mkdir -p %{buildroot}%{_localstatedir}/lib/howler
 mkdir -p %{buildroot}%{_localstatedir}/log/howler
 
 %files
-%doc COPYING README.rst conf/howler.sec
+%license COPYING
+%doc README.rst conf/howler.sec
 %config %dir %{_sysconfdir}/howler
 %config(noreplace) %{_sysconfdir}/howler/howler.ini
 %config(noreplace) %{_sysconfdir}/cron.daily/*
@@ -50,7 +53,7 @@ mkdir -p %{buildroot}%{_localstatedir}/log/howler
 
 
 %changelog
-* Fri Jun 02 2014 Konstantin Ryabitsev <konstantin@linuxfoundation.org>
+* Fri Jun 02 2017 Konstantin Ryabitsev <konstantin@linuxfoundation.org>
 - Final 0.3 release
 - Remove selinux subpackage (rsyslog plugin deprecated)
 
